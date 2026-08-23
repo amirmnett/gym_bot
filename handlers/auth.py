@@ -1,25 +1,24 @@
 from aiogram import Router, types
-from aiogram.filters import CommandStart
-from aiogram.fsm.context import FSMContext # این خط برای مدیریت فرم اضافه شد
+from aiogram.filters import Command
+from aiogram.fsm.context import FSMContext
 from database import get_user, create_user
 from handlers.assessment import start_assessment
 
 auth_router = Router()
 
-@auth_router.message(CommandStart())
-async def start_cmd(message: types.Message, state: FSMContext): # متغیر state اینجا اضافه شد
+@auth_router.message(Command("start"))
+async def start_cmd(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     user = get_user(user_id)
     
     if user:
-        role = user.get("role")
-        if role == "admin":
-            await message.answer("سلام قربان! به پنل مدیریت خوش آمدید.")
-        elif role == "coach":
-            await message.answer(f"سلام مربی {user['name']}! آماده‌ای به شاگردات برنامه بدی؟")
-        else:
-            await message.answer(f"سلام {user['name']} عزیز! به بات باشگاه خوش اومدی. از منو می‌تونی تمرینت رو شروع کنی.")
+        # اگر کاربر قبلاً ثبت‌نام کرده، منوی اصلی پایین صفحه رو براش باز می‌کنیم
+        from handlers.athlete import get_athlete_main_keyboard
+        await message.answer(
+            f"سلام {user['name']} عزیز! به باشگاه خوش اومدی. 💪\nاز منوی پایین می‌تونی تمرینت رو مدیریت کنی:",
+            reply_markup=get_athlete_main_keyboard()
+        )
     else:
-        create_user(telegram_id=user_id, name=message.from_user.full_name)
-        # فراخوانی شروع فرم ارزیابی برای کاربر جدید
+        # اگر کاربر جدیده، میره برای فرم ثبت‌نام
+        create_user(user_id, message.from_user.full_name)
         await start_assessment(message, state)
