@@ -111,3 +111,8 @@ def log_exercise_set(athlete_id: int, exercise_name: str, set_number: int, reps_
         "weight_used": weight_used
     }
     supabase.table("set_logs").insert(data).execute()
+
+def update_exercise_media(exercise_id: str, media_file_id: str):
+    """ذخیره آیدی ویدیوی تلگرام برای یک حرکت ورزشی"""
+    response = supabase.table("exercises").update({"media_file_id": media_file_id}).eq("id", exercise_id).execute()
+    return response.data
