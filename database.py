@@ -45,6 +45,29 @@ def set_coach_for_athlete(athlete_id: int, coach_id: int):
     return response.data
 
 def search_exercises(query: str):
+
+
+from datetime import datetime, timedelta
+
+def create_workout_plan(coach_id: int, athlete_id: int, title: str, duration_days: int):
+    """ایجاد یک برنامه جدید در دیتابیس"""
+    data = {
+        "coach_id": coach_id,
+        "athlete_id": athlete_id,
+        "title": title,
+        "duration_days": duration_days,
+        "status": "active"
+    }
+    response = supabase.table("workout_plans").insert(data).execute()
+    return response.data[0] if response.data else None
+
+def get_expiring_plans(days_left: int):
+    """پیدا کردن برنامه‌هایی که دقیقاً x روز به پایانشان مانده"""
+    target_date = (datetime.utcnow() + timedelta(days=days_left)).strftime('%Y-%m-%d')
+    # جستجو در دیتابیس برای برنامه‌های فعال که تاریخ پایان آن‌ها برابر با هدف است
+    response = supabase.table("workout_plans").select("*").eq("status", "active").eq("end_date", target_date).execute()
+    return response.data    
+    
     """جستجوی حرکات ورزشی (برای پاپ‌آپ)"""
     # جستجو بر اساس نام حرکت که شامل حروف تایپ شده باشد
     response = supabase.table("exercises").select("*").ilike("name", f"%{query}%").limit(15).execute()
