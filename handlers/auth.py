@@ -1,12 +1,13 @@
 from aiogram import Router, types
 from aiogram.filters import CommandStart
+from aiogram.fsm.context import FSMContext # این خط برای مدیریت فرم اضافه شد
 from database import get_user, create_user
 from handlers.assessment import start_assessment
 
 auth_router = Router()
 
 @auth_router.message(CommandStart())
-async def start_cmd(message: types.Message):
+async def start_cmd(message: types.Message, state: FSMContext): # متغیر state اینجا اضافه شد
     user_id = message.from_user.id
     user = get_user(user_id)
     
@@ -19,10 +20,6 @@ async def start_cmd(message: types.Message):
         else:
             await message.answer(f"سلام {user['name']} عزیز! به بات باشگاه خوش اومدی. از منو می‌تونی تمرینت رو شروع کنی.")
     else:
-        # ثبت نام کاربر جدید
         create_user(telegram_id=user_id, name=message.from_user.full_name)
-        await message.answer("سلام! به نظر میاد تازه وارد بات شدی. به عنوان 'ورزشکار' ثبت‌نام شدی.\nبرای دریافت برنامه، لطفاً ابتدا به سوالات ارزیابی ما پاسخ بده... (به زودی)")
-    else:
-        create_user(telegram_id=user_id, name=message.from_user.full_name)
-        # فراخوانی شروع فرم
+        # فراخوانی شروع فرم ارزیابی برای کاربر جدید
         await start_assessment(message, state)
