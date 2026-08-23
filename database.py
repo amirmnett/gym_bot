@@ -1,56 +1,53 @@
 from supabase import create_client, Client
+from datetime import datetime, timedelta
 import config
 
 # اتصال به سوپابیس
 supabase: Client = create_client(config.SUPABASE_URL, config.SUPABASE_KEY)
 
 def get_user(telegram_id: int):
-    """دریافت اطلاعات کاربر از دیتابیس"""
     response = supabase.table("users").select("*").eq("telegram_id", telegram_id).execute()
     return response.data[0] if response.data else None
 
 def create_user(telegram_id: int, name: str, role: str = "athlete"):
-    """ثبت کاربر جدید"""
     data = {
         "telegram_id": telegram_id,
         "name": name,
-        "role": role, # athlete, coach, admin
+        "role": role,
         "coach_id": None
     }
     response = supabase.table("users").insert(data).execute()
     return response.data
 
-def save_assessment(data: dict):
-    """ذخیره فرم ارزیابی ورزشکار در دیتابیس"""
-    response = supabase.table("assessments").insert(data).execute()
-    return response.data
-
 def update_user_role(telegram_id: int, new_role: str):
-    """تغییر نقش کاربر (مثلا ارتقا به مربی)"""
     response = supabase.table("users").update({"role": new_role}).eq("telegram_id", telegram_id).execute()
     return response.data
 
 def get_all_users():
-    """دریافت لیست تمام کاربران برای پیام سراسری"""
     response = supabase.table("users").select("telegram_id").execute()
     return response.data
 
 def get_coach_athletes(coach_id: int):
-    """دریافت لیست شاگردان یک مربی"""
     response = supabase.table("users").select("telegram_id, name").eq("coach_id", coach_id).execute()
     return response.data
+
+def save_assessment(data: dict):
+    response = supabase.table("assessments").insert(data).execute()
+    return response.data
+
 def set_coach_for_athlete(athlete_id: int, coach_id: int):
-    """ثبت مربی برای ورزشکار"""
     response = supabase.table("users").update({"coach_id": coach_id}).eq("telegram_id", athlete_id).execute()
     return response.data
 
 def search_exercises(query: str):
+    response = supabase.table("exercises").select("*").ilike("name", f"%{query}%").limit(15).execute()
+    return response.data
 
-
-from datetime import datetime, timedelta
+def update_exercise_media(exercise_id: str, media_file_id: str):
+    response = supabase.table("exercises").update({"media_file_id": media_file_id}).eq("id", exercise_id).execute()
+    return response.data
 
 def create_workout_plan(coach_id: int, athlete_id: int, title: str, duration_days: int):
-    """ایجاد یک برنامه جدید در دیتابیس"""
     data = {
         "coach_id": coach_id,
         "athlete_id": athlete_id,
@@ -62,24 +59,15 @@ def create_workout_plan(coach_id: int, athlete_id: int, title: str, duration_day
     return response.data[0] if response.data else None
 
 def get_expiring_plans(days_left: int):
-    """پیدا کردن برنامه‌هایی که دقیقاً x روز به پایانشان مانده"""
     target_date = (datetime.utcnow() + timedelta(days=days_left)).strftime('%Y-%m-%d')
-    # جستجو در دیتابیس برای برنامه‌های فعال که تاریخ پایان آن‌ها برابر با هدف است
     response = supabase.table("workout_plans").select("*").eq("status", "active").eq("end_date", target_date).execute()
-    return response.data    
-    
-    """جستجوی حرکات ورزشی (برای پاپ‌آپ)"""
-    # جستجو بر اساس نام حرکت که شامل حروف تایپ شده باشد
-    response = supabase.table("exercises").select("*").ilike("name", f"%{query}%").limit(15).execute()
     return response.data
 
-    def get_latest_plan_by_coach(coach_id: int):
-    """دریافت آخرین برنامه‌ای که مربی در حال ساخت آن است"""
+def get_latest_plan_by_coach(coach_id: int):
     response = supabase.table("workout_plans").select("*").eq("coach_id", coach_id).order("created_at", desc=True).limit(1).execute()
     return response.data[0] if response.data else None
 
 def add_exercise_to_plan(plan_id: str, day_number: int, exercise_id: str, sets: int, reps: str, rest_time: int):
-    """اضافه کردن یک حرکت با جزئیات به برنامه ورزشکار"""
     data = {
         "plan_id": plan_id,
         "day_number": day_number,
@@ -90,19 +78,16 @@ def add_exercise_to_plan(plan_id: str, day_number: int, exercise_id: str, sets: 
     }
     response = supabase.table("plan_exercises").insert(data).execute()
     return response.data
+
 def get_athlete_active_plan(athlete_id: int):
-    """پیدا کردن برنامه فعال ورزشکار"""
     response = supabase.table("workout_plans").select("*").eq("athlete_id", athlete_id).eq("status", "active").execute()
     return response.data[0] if response.data else None
 
 def get_exercises_for_plan(plan_id: str):
-    """گرفتن تمام حرکات یک برنامه"""
-    # با استفاده از join دیتای خود حرکت رو هم از جدول exercises می‌گیریم
     response = supabase.table("plan_exercises").select("*, exercise_id(*)").eq("plan_id", plan_id).order("day_number").execute()
     return response.data
 
 def log_exercise_set(athlete_id: int, exercise_name: str, set_number: int, reps_done: int, weight_used: float):
-    """ثبت لاگ وزنه و تکرار ورزشکار در دیتابیس"""
     data = {
         "athlete_id": athlete_id,
         "exercise_name": exercise_name,
@@ -112,12 +97,6 @@ def log_exercise_set(athlete_id: int, exercise_name: str, set_number: int, reps_
     }
     supabase.table("set_logs").insert(data).execute()
 
-def update_exercise_media(exercise_id: str, media_file_id: str):
-    """ذخیره آیدی ویدیوی تلگرام برای یک حرکت ورزشی"""
-    response = supabase.table("exercises").update({"media_file_id": media_file_id}).eq("id", exercise_id).execute()
-    return response.data
-
 def get_athlete_logs(athlete_id: int):
-    """دریافت تمام ست‌های تمرینی ورزشکار برای رسم نمودار"""
     response = supabase.table("set_logs").select("*").eq("athlete_id", athlete_id).execute()
     return response.data
