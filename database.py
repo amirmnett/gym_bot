@@ -72,3 +72,21 @@ def get_expiring_plans(days_left: int):
     # جستجو بر اساس نام حرکت که شامل حروف تایپ شده باشد
     response = supabase.table("exercises").select("*").ilike("name", f"%{query}%").limit(15).execute()
     return response.data
+
+    def get_latest_plan_by_coach(coach_id: int):
+    """دریافت آخرین برنامه‌ای که مربی در حال ساخت آن است"""
+    response = supabase.table("workout_plans").select("*").eq("coach_id", coach_id).order("created_at", desc=True).limit(1).execute()
+    return response.data[0] if response.data else None
+
+def add_exercise_to_plan(plan_id: str, day_number: int, exercise_id: str, sets: int, reps: str, rest_time: int):
+    """اضافه کردن یک حرکت با جزئیات به برنامه ورزشکار"""
+    data = {
+        "plan_id": plan_id,
+        "day_number": day_number,
+        "exercise_id": exercise_id,
+        "sets": sets,
+        "reps": reps,
+        "rest_time": rest_time
+    }
+    response = supabase.table("plan_exercises").insert(data).execute()
+    return response.data
