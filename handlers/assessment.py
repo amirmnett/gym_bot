@@ -199,4 +199,4 @@ async def process_daily_time(message: types.Message, state: FSMContext):
         print(f"Error saving assessment: {e}")
     
     # پایان State
-    await state.clear()س
+    await state.clear()
