@@ -32,16 +32,11 @@ def get_coach_athletes(coach_id: int):
     return response.data
 
 def save_assessment(data: dict):
-    # اول بررسی می‌کنیم که آیا کاربر قبلاً فرمی داشته یا نه
     existing = supabase.table("assessments").select("id").eq("telegram_id", data["telegram_id"]).execute()
-    
     if existing.data:
-        # اگه قبلاً فرم داشته، اطلاعاتش رو آپدیت می‌کنیم
         response = supabase.table("assessments").update(data).eq("telegram_id", data["telegram_id"]).execute()
     else:
-        # اگه بار اولشه، یک فرم جدید می‌سازیم
         response = supabase.table("assessments").insert(data).execute()
-        
     return response.data
 
 def set_coach_for_athlete(athlete_id: int, coach_id: int):
@@ -111,7 +106,6 @@ def get_athlete_logs(athlete_id: int):
     return response.data
 
 def add_custom_exercise(name: str, created_by: int):
-    """ثبت حرکت جدید در دیتابیس توسط کاربر"""
     data = {
         "name": name,
         "sport_type": "شخصی",
@@ -119,7 +113,7 @@ def add_custom_exercise(name: str, created_by: int):
     }
     response = supabase.table("exercises").insert(data).execute()
     return response.data[0] if response.data else None
-    def get_assessment(telegram_id: int):
-    """دریافت فرم ارزیابی یک ورزشکار خاص"""
+
+def get_assessment(telegram_id: int):
     response = supabase.table("assessments").select("*").eq("telegram_id", telegram_id).execute()
     return response.data[0] if response.data else None
