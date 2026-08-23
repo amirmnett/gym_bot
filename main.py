@@ -1,18 +1,20 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import config
 
-
+# ایمپورت روترها
 from handlers.auth import auth_router
 from handlers.assessment import assessment_router
 from handlers.admin import admin_router
 from handlers.coach import coach_router
-from handlers.inline_search import inline_router  
-from handlers.athlete import athlete_router       
+from handlers.inline_search import inline_router
+from handlers.athlete import athlete_router
+from handlers.plan_creator import plan_router # اضافه شد
 
-# فایل‌های دیگر هم بعداً اینجا ایمپورت می‌شوند مثل:
-# from handlers.admin import admin_router
+# ایمپورت تسک یادآور
+from utils.reminders import check_plans_daily
 
 async def main():
     logging.basicConfig(level=logging.INFO)
@@ -20,18 +22,23 @@ async def main():
     bot = Bot(token=config.BOT_TOKEN)
     dp = Dispatcher()
     
-    # اضافه کردن روترها (بخش‌های مختلف بات)
+    # راه‌اندازی زمان‌بند (Scheduler)
+    scheduler = AsyncIOScheduler(timezone='Asia/Tehran')
+    # تنظیم اجرای تابع یادآور هر روز ساعت ۸ صبح
+    scheduler.add_job(check_plans_daily, trigger='cron', hour=8, minute=0, kwargs={'bot': bot})
+    scheduler.start()
+    
+    # اضافه کردن روترها
     dp.include_router(auth_router)
     dp.include_router(assessment_router)
     dp.include_router(admin_router)
     dp.include_router(coach_router)
-    dp.include_router(inline_router) 
-    dp.include_router(athlete_router) 
-    # dp.include_router(admin_router)
+    dp.include_router(inline_router)
+    dp.include_router(athlete_router)
+    dp.include_router(plan_router) # اضافه شد
     
     print("Bot is starting...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
-
