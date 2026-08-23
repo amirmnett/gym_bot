@@ -87,6 +87,8 @@ async def process_ask_continue(message: types.Message, state: FSMContext):
         # اگر اسکیپ کرد، اطلاعات رو همونطور که هست ذخیره می‌کنیم
         data = await state.get_data()
         data['telegram_id'] = message.from_user.id
+        # این خط رو قبل از try: save_assessment(data) بذار
+        await message.answer("⏳ در حال پردازش...", reply_markup=ReplyKeyboardRemove())
         try:
             save_assessment(data)
             # نمایش دکمه‌های شیشه‌ای برای انتخاب مسیر بعدی
