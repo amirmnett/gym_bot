@@ -43,6 +43,7 @@ def save_assessment(data: dict):
         response = supabase.table("assessments").insert(data).execute()
         
     return response.data
+
 def set_coach_for_athlete(athlete_id: int, coach_id: int):
     response = supabase.table("users").update({"coach_id": coach_id}).eq("telegram_id", athlete_id).execute()
     return response.data
@@ -117,4 +118,8 @@ def add_custom_exercise(name: str, created_by: int):
         "created_by": created_by
     }
     response = supabase.table("exercises").insert(data).execute()
+    return response.data[0] if response.data else None
+    def get_assessment(telegram_id: int):
+    """دریافت فرم ارزیابی یک ورزشکار خاص"""
+    response = supabase.table("assessments").select("*").eq("telegram_id", telegram_id).execute()
     return response.data[0] if response.data else None
