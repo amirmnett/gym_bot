@@ -11,8 +11,8 @@ from handlers.admin import admin_router
 from handlers.coach import coach_router
 from handlers.inline_search import inline_router
 from handlers.athlete import athlete_router
-from handlers.plan_creator import plan_router # اضافه شد
-
+from handlers.plan_creator import plan_router 
+from handlers.add_exercise import exercise_router
 # ایمپورت تسک یادآور
 from utils.reminders import check_plans_daily
 
