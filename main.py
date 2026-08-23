@@ -15,6 +15,7 @@ from handlers.plan_creator import plan_router
 from handlers.add_exercise import exercise_router
 # ایمپورت تسک یادآور
 from utils.reminders import check_plans_daily
+from handlers.workout import workout_router
 
 async def main():
     logging.basicConfig(level=logging.INFO)
@@ -37,6 +38,8 @@ async def main():
     dp.include_router(athlete_router)
     dp.include_router(plan_router) # اضافه شد
     dp.include_router(exercise_router)
+    dp.include_router(workout_router)
+    
     print("Bot is starting...")
     await dp.start_polling(bot)
 
