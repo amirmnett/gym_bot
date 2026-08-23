@@ -1,6 +1,7 @@
 from aiogram import Router, types
 from aiogram.filters import CommandStart
 from database import get_user, create_user
+from handlers.assessment import start_assessment
 
 auth_router = Router()
 
@@ -21,3 +22,7 @@ async def start_cmd(message: types.Message):
         # ثبت نام کاربر جدید
         create_user(telegram_id=user_id, name=message.from_user.full_name)
         await message.answer("سلام! به نظر میاد تازه وارد بات شدی. به عنوان 'ورزشکار' ثبت‌نام شدی.\nبرای دریافت برنامه، لطفاً ابتدا به سوالات ارزیابی ما پاسخ بده... (به زودی)")
+    else:
+        create_user(telegram_id=user_id, name=message.from_user.full_name)
+        # فراخوانی شروع فرم
+        await start_assessment(message, state)
