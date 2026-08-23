@@ -90,3 +90,24 @@ def add_exercise_to_plan(plan_id: str, day_number: int, exercise_id: str, sets: 
     }
     response = supabase.table("plan_exercises").insert(data).execute()
     return response.data
+def get_athlete_active_plan(athlete_id: int):
+    """پیدا کردن برنامه فعال ورزشکار"""
+    response = supabase.table("workout_plans").select("*").eq("athlete_id", athlete_id).eq("status", "active").execute()
+    return response.data[0] if response.data else None
+
+def get_exercises_for_plan(plan_id: str):
+    """گرفتن تمام حرکات یک برنامه"""
+    # با استفاده از join دیتای خود حرکت رو هم از جدول exercises می‌گیریم
+    response = supabase.table("plan_exercises").select("*, exercise_id(*)").eq("plan_id", plan_id).order("day_number").execute()
+    return response.data
+
+def log_exercise_set(athlete_id: int, exercise_name: str, set_number: int, reps_done: int, weight_used: float):
+    """ثبت لاگ وزنه و تکرار ورزشکار در دیتابیس"""
+    data = {
+        "athlete_id": athlete_id,
+        "exercise_name": exercise_name,
+        "set_number": set_number,
+        "reps_done": reps_done,
+        "weight_used": weight_used
+    }
+    supabase.table("set_logs").insert(data).execute()
