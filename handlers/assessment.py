@@ -177,26 +177,47 @@ async def process_wants_cardio(message: types.Message, state: FSMContext):
     await state.set_state(AssessmentForm.preferred_cardio)
     await message.answer("۲۳. با کدام هوازی راحت‌ترید؟", reply_markup=make_keyboard(["تردمیل", "دوچرخه", "الپتیکال", "طناب", "فرقی ندارد"]))
 
-@assessment_router.message(AssessmentForm.preferred_cardio)
-async def process_pref_cardio(message: types.Message, state: FSMContext):
-    await state.update_data(preferred_cardio=message.text)
-    await state.set_state(AssessmentForm.daily_time)
-    await message.answer("۲۴. روزانه چقدر زمان می‌توانید برای تمرین بگذارید؟ (به دقیقه)", reply_markup=ReplyKeyboardRemove())
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+@assessment_router.message(AssessmentForm.wants_cardio)
+async def process_wants_cardio(message: types.Message, state: FSMContext):
+    await state.update_data(wants_cardio=message.text)
+    
+    # اگر کاربر گفت خیر، سوال بعدی رو رد می‌کنیم و میریم سراغ سوال آخر
+    if message.text == "خیر":
+        await state.update_data(preferred_cardio="ندارد")
+        await state.set_state(AssessmentForm.daily_time)
+        await message.answer("۲۴. ⏱ روزانه چقدر زمان می‌تونی برای تمرین بگذاری؟ (به دقیقه)", reply_markup=ReplyKeyboardRemove())
+    else:
+        await state.set_state(AssessmentForm.preferred_cardio)
+        await message.answer("۲۳. 🏃‍♂️ با کدوم هوازی راحت‌تری؟", reply_markup=make_keyboard(["تردمیل", "دوچرخه", "الپتیکال", "طناب", "فرقی ندارد"]))
+
+# ... (تابع process_pref_cardio همون قبلی بمونه) ...
 
 @assessment_router.message(AssessmentForm.daily_time)
 async def process_daily_time(message: types.Message, state: FSMContext):
     await state.update_data(daily_time=int(message.text) if message.text.isdigit() else 0)
     
-    # دریافت کل داده‌ها و ذخیره در دیتابیس
     data = await state.get_data()
     data['telegram_id'] = message.from_user.id
     
     try:
         save_assessment(data)
-        await message.answer("✅ ارزیابی شما با موفقیت ثبت شد! اطلاعات شما برای مربی ارسال خواهد شد.")
+        
+        # ساخت دکمه‌های شیشه‌ای برای انتخاب مسیر ورزشکار
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👨‍🏫 می‌خوام مربی انتخاب کنم", callback_data="choose_coach_flow")],
+            [InlineKeyboardButton(text="🏋️‍♂️ خودم به تنهایی تمرین می‌کنم", callback_data="solo_training_flow")]
+        ])
+        
+        await message.answer(
+            "🎉 **پروفایل ورزشی تو با موفقیت ساخته شد!** 🥳\n\n"
+            "حالا به من بگو دوست داری چطوری پیش بری؟",
+            reply_markup=keyboard,
+            parse_mode="Markdown"
+        )
     except Exception as e:
         await message.answer("❌ متاسفانه در ثبت اطلاعات مشکلی پیش آمد. لطفا به ادمین اطلاع دهید.")
         print(f"Error saving assessment: {e}")
     
-    # پایان State
     await state.clear()
