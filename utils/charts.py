@@ -12,6 +12,7 @@ def generate_progress_chart(dates: list, volumes: list, title: str):
     plt.xlabel('Dates', fontsize=12)
     plt.ylabel('Training Volume (kg)', fontsize=12)
     plt.grid(True, linestyle='--', alpha=0.7)
+    plt.xticks(rotation=45, ha='right') # <--- این خط دقیقاً اینجا قرار می‌گیره
     
     # ذخیره نمودار در حافظه (بدون نیاز به ذخیره فایل روی سرور)
     buf = io.BytesIO()
