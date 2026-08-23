@@ -36,7 +36,7 @@ async def main():
     dp.include_router(inline_router)
     dp.include_router(athlete_router)
     dp.include_router(plan_router) # اضافه شد
-    
+    dp.include_router(exercise_router)
     print("Bot is starting...")
     await dp.start_polling(bot)
 
