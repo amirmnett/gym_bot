@@ -221,21 +221,47 @@ async def process_pref_cardio(message: types.Message, state: FSMContext):
     await state.set_state(AssessmentForm.daily_time)
     await message.answer("۲۴. روزانه چقدر زمان می‌توانید برای تمرین بگذارید؟ (به دقیقه)", reply_markup=ReplyKeyboardRemove())
 
+# این دو تابع رو در انتهای فایل assessment.py جایگزین کن
+
+@assessment_router.message(AssessmentForm.ask_continue)
+async def process_ask_continue(message: types.Message, state: FSMContext):
+    # پاک کردن دکمه‌های بله/خیر از پایین صفحه
+    await message.answer("⏳ در حال پردازش...", reply_markup=ReplyKeyboardRemove())
+    
+    if "پایان" in message.text:
+        data = await state.get_data()
+        data['telegram_id'] = message.from_user.id
+        try:
+            save_assessment(data)
+            from handlers.athlete import get_athlete_main_keyboard
+            await message.answer(
+                "🎉 **پروفایل ورزشی تو با موفقیت ساخته شد!** 🥳\n\nمنوی اصلی ربات در پایین صفحه برای شما باز شد. حالا می‌تونی برنامه‌ت رو بسازی یا تمرینت رو شروع کنی.",
+                reply_markup=get_athlete_main_keyboard(),
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            await message.answer("❌ متاسفانه در ثبت اطلاعات مشکلی پیش آمد.")
+        await state.clear()
+    else:
+        await state.set_state(AssessmentForm.occupation)
+        await message.answer("۶. شغل شما چیست؟")
+
 @assessment_router.message(AssessmentForm.daily_time)
 async def process_daily_time(message: types.Message, state: FSMContext):
     await state.update_data(daily_time=int(message.text) if message.text.isdigit() else 0)
+    await message.answer("⏳ در حال پردازش...", reply_markup=ReplyKeyboardRemove())
     
     data = await state.get_data()
     data['telegram_id'] = message.from_user.id
     
     try:
         save_assessment(data)
-        # همون دکمه‌های شیشه‌ای پایان فرم
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="👨‍🏫 می‌خوام مربی انتخاب کنم", callback_data="choose_coach_flow")],
-            [InlineKeyboardButton(text="🏋️‍♂️ خودم به تنهایی تمرین می‌کنم", callback_data="solo_training_flow")]
-        ])
-        await message.answer("🎉 **پروفایل ورزشی تو با موفقیت ساخته شد!** 🥳\n\nحالا به من بگو دوست داری چطوری پیش بری؟", reply_markup=keyboard, parse_mode="Markdown")
+        from handlers.athlete import get_athlete_main_keyboard
+        await message.answer(
+            "🎉 **پروفایل ورزشی تو با موفقیت ساخته شد!** 🥳\n\nمنوی اصلی ربات در پایین صفحه برای شما باز شد. حالا می‌تونی برنامه‌ت رو بسازی یا تمرینت رو شروع کنی.",
+            reply_markup=get_athlete_main_keyboard(),
+            parse_mode="Markdown"
+        )
     except Exception as e:
         await message.answer("❌ متاسفانه در ثبت اطلاعات مشکلی پیش آمد.")
     
