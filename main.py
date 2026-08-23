@@ -1,74 +1,138 @@
 import asyncio
-import logging
-import os
-from aiohttp import web
-from aiogram import Bot, Dispatcher
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import config
+from aiogram import Router, types, F
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from database import get_athlete_active_plan, get_exercises_for_plan, log_exercise_set
 
-# ایمپورت تمام روترهایی که تا الان ساختیم
-from handlers.auth import auth_router
-from handlers.assessment import assessment_router
-from handlers.admin import admin_router
-from handlers.coach import coach_router
-from handlers.inline_search import inline_router
-from handlers.athlete import athlete_router
-from handlers.plan_creator import plan_router
-from handlers.add_exercise import exercise_router
-from handlers.media import media_router
-from handlers.workout import workout_router
+workout_router = Router()
 
-# ایمپورت تسک یادآور
-from utils.reminders import check_plans_daily
+class WorkoutSession(StatesGroup):
+    waiting_for_performance = State()
 
+# یک کیبورد مخصوص زمان تمرین
+def get_workout_keyboard():
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="⏹ پایان تمرین")]],
+        resize_keyboard=True
+    )
 
-# --- بخش جدید: سرور وب فیک برای گول زدن رندر ---
-async def ping(request):
-    return web.Response(text="Bot is running perfectly! 🚀")
-
-async def dummy_web_server():
-    app = web.Application()
-    app.router.add_get('/', ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
+# --- استارت تمرین با کلیک روی دکمه منوی اصلی ---
+@workout_router.message(F.text == "🚀 شروع تمرین امروز")
+async def start_workout(message: types.Message, state: FSMContext):
+    plan = get_athlete_active_plan(message.from_user.id)
     
-    # رندر خودش پورت رو میده، اگر نداد روی 10000 تنظیم میشه
-    port = int(os.environ.get("PORT", 10000))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
-    logging.info(f"Dummy web server started on port {port}")
-# ------------------------------------------------
+    if not plan:
+        return await message.answer("❌ شما در حال حاضر هیچ برنامه فعالی ندارید.\nاول از منوی اصلی یک برنامه بسازید.")
+        
+    exercises = get_exercises_for_plan(plan['id'])
+    if not exercises:
+        return await message.answer("❌ برنامه‌ی شما هنوز هیچ حرکتی نداره! از منو دکمه 'اضافه کردن حرکت' رو بزن.")
+        
+    # ذخیره لیست حرکات و وضعیت فعلی در State
+    await state.update_data(
+        exercises=exercises,
+        current_ex_index=0,
+        current_set=1
+    )
+    
+    await message.answer("🔥 تمرین امروز استارت خورد! پرقدرت برو جلو.", reply_markup=get_workout_keyboard())
+    await send_next_exercise_or_set(message, state)
 
 
-async def main():
-    logging.basicConfig(level=logging.INFO)
+async def send_next_exercise_or_set(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+    if not data: return # در صورتی که State پاک شده باشه
     
-    # اول سرور فیک رو استارت می‌زنیم تا رندر گیر نده
-    await dummy_web_server()
+    exercises = data['exercises']
+    current_ex_index = data['current_ex_index']
+    current_set = data['current_set']
     
-    bot = Bot(token=config.BOT_TOKEN)
-    dp = Dispatcher()
+    # اگر تمام حرکات تمام شده باشد
+    if current_ex_index >= len(exercises):
+        from handlers.athlete import get_athlete_main_keyboard
+        await message.answer("🎉 خسته نباشی قهرمان! تمرین امروزت با موفقیت تموم شد و ثبت شد.", reply_markup=get_athlete_main_keyboard())
+        await state.clear()
+        return
+        
+    current_ex_data = exercises[current_ex_index]
+    ex_info = current_ex_data.get('exercise_id', {}) 
+    ex_name = ex_info.get('name', 'حرکت نامشخص')
+    total_sets = current_ex_data['sets']
+    target_reps = current_ex_data['reps']
     
-    # راه‌اندازی زمان‌بند (Scheduler)
-    scheduler = AsyncIOScheduler(timezone='Asia/Tehran')
-    scheduler.add_job(check_plans_daily, trigger='cron', hour=8, minute=0, kwargs={'bot': bot})
-    scheduler.start()
+    text = (
+        f"🏋️‍♂️ **{ex_name}**\n"
+        f"📊 ست {current_set} از {total_sets}\n"
+        f"🔄 تکرار هدف: {target_reps}\n\n"
+        f"👈 عملکرد این ست رو به این شکل برام بنویس:\n"
+        f"`وزنه-تکرار` (مثلاً: `50-10`)"
+    )
     
-    # اضافه کردن تمام روترها به بات
-    dp.include_router(auth_router)
-    dp.include_router(assessment_router)
-    dp.include_router(admin_router)
-    dp.include_router(coach_router)
-    dp.include_router(inline_router)
-    dp.include_router(athlete_router)
-    dp.include_router(plan_router)
-    dp.include_router(exercise_router)
-    dp.include_router(media_router)
-    dp.include_router(workout_router)
-    
-    print("Bot is starting...")
-    # روشن کردن بات
-    await dp.start_polling(bot)
+    # اگه حرکت ویدیو داشت بفرست
+    media_id = ex_info.get('media_file_id')
+    if media_id:
+        await message.answer_video(video=media_id, caption=text, parse_mode="Markdown", reply_markup=get_workout_keyboard())
+    else:
+        await message.answer(text, parse_mode="Markdown", reply_markup=get_workout_keyboard())
+        
+    await state.set_state(WorkoutSession.waiting_for_performance)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+# --- دریافت عملکرد ورزشکار در هر ست ---
+@workout_router.message(WorkoutSession.waiting_for_performance)
+async def process_performance(message: types.Message, state: FSMContext):
+    # اگه دکمه پایان رو زد
+    if message.text == "⏹ پایان تمرین":
+        from handlers.athlete import get_athlete_main_keyboard
+        await state.clear()
+        return await message.answer("🛑 تمرین متوقف شد. خسته نباشی!", reply_markup=get_athlete_main_keyboard())
+        
+    # اعتبارسنجی ورودی کاربر (مثلاً 50-10)
+    try:
+        parts = message.text.replace(' ', '').split('-')
+        if len(parts) != 2: raise ValueError
+        weight = float(parts[0])
+        reps = int(parts[1])
+    except ValueError:
+        return await message.answer("❌ فرمت اشتباهه!\nلطفاً فقط با فرمت `وزنه-تکرار` بفرست. مثلاً بنویس: `50-10`")
+        
+    data = await state.get_data()
+    exercises = data['exercises']
+    current_ex_index = data['current_ex_index']
+    current_set = data['current_set']
+    
+    current_ex_data = exercises[current_ex_index]
+    ex_info = current_ex_data.get('exercise_id', {})
+    ex_name = ex_info.get('name', 'حرکت نامشخص')
+    rest_time = current_ex_data.get('rest_time', 60)
+    
+    # ثبت در دیتابیس
+    log_exercise_set(
+        athlete_id=message.from_user.id,
+        exercise_name=ex_name,
+        set_number=current_set,
+        reps_done=reps,
+        weight_used=weight
+    )
+    
+    total_sets = current_ex_data['sets']
+    
+    # به‌روزرسانی ست و حرکت بعدی
+    if current_set < total_sets:
+        await state.update_data(current_set=current_set + 1)
+    else:
+        await state.update_data(current_ex_index=current_ex_index + 1, current_set=1)
+
+    # تایمر استراحت در پس‌زمینه
+    await message.answer(f"✅ ثبت شد!\n⏱ حالا **{rest_time} ثانیه** استراحت کن...")
+    
+    async def rest_timer():
+        await asyncio.sleep(rest_time)
+        # چک میکنیم کاربر وسط استراحت تمرین رو قطع نکرده باشه
+        current_state = await state.get_state()
+        if current_state:
+            await message.answer("🔔 **وقت استراحت تمومه!** بریم سراغ ادامه...", reply_markup=get_workout_keyboard())
+            await send_next_exercise_or_set(message, state)
+            
+    asyncio.create_task(rest_timer())
