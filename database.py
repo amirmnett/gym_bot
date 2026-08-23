@@ -19,3 +19,8 @@ def create_user(telegram_id: int, name: str, role: str = "athlete"):
     }
     response = supabase.table("users").insert(data).execute()
     return response.data
+
+def save_assessment(data: dict):
+    """ذخیره فرم ارزیابی ورزشکار در دیتابیس"""
+    response = supabase.table("assessments").insert(data).execute()
+    return response.data
