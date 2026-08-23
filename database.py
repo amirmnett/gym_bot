@@ -39,3 +39,13 @@ def get_coach_athletes(coach_id: int):
     """دریافت لیست شاگردان یک مربی"""
     response = supabase.table("users").select("telegram_id, name").eq("coach_id", coach_id).execute()
     return response.data
+def set_coach_for_athlete(athlete_id: int, coach_id: int):
+    """ثبت مربی برای ورزشکار"""
+    response = supabase.table("users").update({"coach_id": coach_id}).eq("telegram_id", athlete_id).execute()
+    return response.data
+
+def search_exercises(query: str):
+    """جستجوی حرکات ورزشی (برای پاپ‌آپ)"""
+    # جستجو بر اساس نام حرکت که شامل حروف تایپ شده باشد
+    response = supabase.table("exercises").select("*").ilike("name", f"%{query}%").limit(15).execute()
+    return response.data
