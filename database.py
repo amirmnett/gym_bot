@@ -116,3 +116,8 @@ def update_exercise_media(exercise_id: str, media_file_id: str):
     """ذخیره آیدی ویدیوی تلگرام برای یک حرکت ورزشی"""
     response = supabase.table("exercises").update({"media_file_id": media_file_id}).eq("id", exercise_id).execute()
     return response.data
+
+def get_athlete_logs(athlete_id: int):
+    """دریافت تمام ست‌های تمرینی ورزشکار برای رسم نمودار"""
+    response = supabase.table("set_logs").select("*").eq("athlete_id", athlete_id).execute()
+    return response.data
