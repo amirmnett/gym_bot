@@ -108,3 +108,13 @@ def log_exercise_set(athlete_id: int, exercise_name: str, set_number: int, reps_
 def get_athlete_logs(athlete_id: int):
     response = supabase.table("set_logs").select("*").eq("athlete_id", athlete_id).execute()
     return response.data
+
+def add_custom_exercise(name: str, created_by: int):
+    """ثبت حرکت جدید در دیتابیس توسط کاربر"""
+    data = {
+        "name": name,
+        "sport_type": "شخصی",
+        "created_by": created_by
+    }
+    response = supabase.table("exercises").insert(data).execute()
+    return response.data[0] if response.data else None
